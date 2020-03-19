@@ -1,0 +1,104 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda function which alert team-sre channel when there is an update
+  avaliable in elastic search
+Parameters:
+  SlackChannel:
+    Type: String
+    Default: ''
+  SlackWebhookUrl:
+    Type: String
+    Default: ''
+  DomainName:
+    Type: String
+    Default: ''
+  Region:
+    Type: String
+    Default: ''
+Resources:
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - logs:DescribeLogStreams
+            Effect: Allow
+            Resource:
+            - '*'
+          - Action:
+            - cloudformation:ListStacks
+            - cloudformation:DeleteStack
+            - iam:DeleteRolePolicy
+            - iam:DeleteRole
+            - ec2:DescribeInstances
+            - es:DescribeElasticsearchDomain
+            Effect: Allow
+            Resource:
+            - '*'
+          Version: '2012-10-17'
+        PolicyName: AllowLogsandCloudformation
+  esServiceUpdater:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: es_service_updater.lambda_handler
+      Runtime: python3.6
+      CodeUri: s3://prod-uswest2-lambda-deploy/es-service-updater/734fdaeb22f2ecd492c76380dfeecbeb
+      Description: Lambda function which alert team-sre channel when there is an update
+        avaliable in elastic search
+      MemorySize: 128
+      Timeout: 300
+      Role:
+        Fn::GetAtt:
+        - ExecutionRole
+        - Arn
+      Environment:
+        Variables:
+          SLACK_CHANNEL:
+            Ref: SlackChannel
+          SLACK_WEBHOOK_URL:
+            Ref: SlackWebhookUrl
+          DOMAIN_NAME:
+            Ref: DomainName
+          REGION:
+            Ref: Region
+  lambdaScheduledRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Run es-service-updater lambda every monday of the month at 9:00
+        am GMT
+      ScheduleExpression: cron(0 9 ? * MON *)
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - esServiceUpdater
+          - Arn
+        Id: es_Service_Updater
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - lambdaScheduledRule
+        - Arn
+      FunctionName:
+        Fn::GetAtt:
+        - esServiceUpdater
+        - Arn
