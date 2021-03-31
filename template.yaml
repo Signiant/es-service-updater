@@ -9,7 +9,7 @@ Parameters:
   SlackWebhookUrl:
     Type: String
     Default: ""
-  DomainName:
+  DomainNameList:
     Type: String
     Default: ""
   Region:
@@ -59,7 +59,7 @@ Resources:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: es_service_updater.lambda_handler
-      Runtime: python3.6
+      Runtime: python3.7
       CodeUri: .
       Description: Lambda function which alert team-sre channel when there is an update avaliable in elastic search
       MemorySize: 128
@@ -69,7 +69,7 @@ Resources:
         Variables:
           SLACK_CHANNEL: !Ref SlackChannel
           SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
-          DOMAIN_NAME: !Ref DomainName
+          DOMAIN_NAME_LIST: !Ref DomainNameList
           REGION: !Ref Region
 
   lambdaScheduledRule:
@@ -77,8 +77,7 @@ Resources:
     Properties:
       Description: "Run es-service-updater lambda every monday of the month at 9:00 am GMT"
       # Set the cron to run At 09:00:00am, on every Monday, every month (lambdas clocks are GMT) to make sure we handle
-      # Standard time as well as Daylight Savings time - this means a policy can actually be active for 1 hour past expiry
-      # during daylight savings times
+      # Standard time as well as Daylight Savings time 
       ScheduleExpression: "cron(0 9 ? * MON *)"
       State: "ENABLED"
       Targets:

@@ -6,6 +6,9 @@ import os
 import json
 import urllib
 
+logging.getLogger().setLevel(logging.INFO)
+
+
 def lambda_handler(event, context):
     """
     Main lambda handler
@@ -17,8 +20,8 @@ def lambda_handler(event, context):
     if 'SLACK_CHANNEL' in os.environ:
         slack_channel = os.environ['SLACK_CHANNEL']
 
-    if 'DOMAIN_NAME' in os.environ:
-        domain_name = os.environ['DOMAIN_NAME']
+    if 'DOMAIN_NAME_LIST' in os.environ:
+        domain_name_list = os.environ['DOMAIN_NAME_LIST']
 
     if 'REGION' in os.environ:
         region = os.environ['REGION']
@@ -26,44 +29,47 @@ def lambda_handler(event, context):
     if 'SLACK_WEBHOOK_URL' in os.environ:
         slack_webhook = os.environ['SLACK_WEBHOOK_URL']
 
-    print("AWS Region: {0}".format(region))
+    logging.info("AWS Region: {0}".format(region))
     SESSION = boto3.session.Session(region_name=region)
     cf = SESSION.client('es')
+    #domain_name_list is list of elastic domain seperated by space in prod
+    domain_name_list=domain_name_list.split(",")
+    for domain_name in domain_name_list:
+        logging.info("Check service software update for elasticsearch: {0} ".format(domain_name))
+        response = cf.describe_elasticsearch_domain(DomainName=domain_name)
+        service_software_options=response['DomainStatus']['ServiceSoftwareOptions']
+        update_available=service_software_options['UpdateAvailable']
+        logging.info("Update avaliable: {0} ".format(update_available))
+        if update_available:
 
-    response = cf.describe_elasticsearch_domain(DomainName=domain_name)
-    service_software_options=response['DomainStatus']['ServiceSoftwareOptions']
-    update_available=service_software_options['UpdateAvailable']
+            current_version =service_software_options['CurrentVersion']
+            new_version = service_software_options['NewVersion']
+            slack_txt = "*Service Domain update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
+                domain_name, current_version, new_version)
 
-    if update_available:
-        #no service avaliable
-        current_version =service_software_options['CurrentVersion']
-        new_version = service_software_options['NewVersion']
-        slack_txt = "*Service Domain update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
-            domain_name, current_version, new_version)
-
-        url_format="https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(region,domain_name)
-        slack_message = {
-            'channel': slack_channel,
-            'text': slack_txt,
-            "attachments": [
-                {
-                    "fallback": "Update the domain through AWS elastic Search Service Console",
-                    "actions": [
-                        {
-                            "type": "button",
-                            "text": "Press Here to Update",
-                            "url": url_format
-                        }
-                    ]
-                }
-            ]
-        }
-        data = json.dumps(slack_message).encode('utf-8')
-        headers = {'Content-Type': 'application/json'}
-        req = urllib.request.Request(slack_webhook, data,headers)
-        resp = urllib.request.urlopen(req)
-        response = resp.read()
-        print(response)
+            url_format="https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(region,domain_name)
+            slack_message = {
+                'channel': slack_channel,
+                'text': slack_txt,
+                "attachments": [
+                    {
+                        "fallback": "Update the domain through AWS elastic Search Service Console",
+                        "actions": [
+                            {
+                                "type": "button",
+                                "text": "Press Here to Update",
+                                "url": url_format
+                            }
+                        ]
+                    }
+                ]
+            }
+            data = json.dumps(slack_message).encode('utf-8')
+            headers = {'Content-Type': 'application/json'}
+            req = urllib.request.Request(slack_webhook, data,headers)
+            resp = urllib.request.urlopen(req)
+            response = resp.read()
+            print(response)
 
 if __name__ == "__main__":
 
@@ -114,6 +120,7 @@ if __name__ == "__main__":
     service_software_options=response['DomainStatus']['ServiceSoftwareOptions']
     update_available=service_software_options['UpdateAvailable']
 
+    print(service_software_options)
     update_available=True
 
     if update_available:
@@ -123,11 +130,28 @@ if __name__ == "__main__":
         slack_txt = "*Service Domain update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
             args.domain_name, current_version, new_version)
 
+        url_format="https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(args.region,args.domain_name)
         slack_message = {
             'channel': "#slack-testing",
-            'text': slack_txt
+            'text': slack_txt,
+            "attachments": [
+                {
+                    "fallback": "Update the domain through AWS elastic Search Service Console",
+                    "actions": [
+                        {
+                            "type": "button",
+                            "text": "Press Here to Update",
+                            "url": url_format
+                        }
+                    ]
+                }
+            ]
         }
-
-
+        data = json.dumps(slack_message).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        req = urllib.request.Request("https://hooks.slack.com/services/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", data,headers)
+        resp = urllib.request.urlopen(req)
+        response = resp.read()
+        print(response)
 
 
