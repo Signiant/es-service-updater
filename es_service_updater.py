@@ -147,6 +147,11 @@ if __name__ == "__main__":
                 }
             ]
         }
-
+        data = json.dumps(slack_message).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        req = urllib.request.Request("<your own slack hook>", data,headers)
+        resp = urllib.request.urlopen(req)
+        response = resp.read()
+        print(response)
 
 
