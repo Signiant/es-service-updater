@@ -147,11 +147,6 @@ if __name__ == "__main__":
                 }
             ]
         }
-        data = json.dumps(slack_message).encode('utf-8')
-        headers = {'Content-Type': 'application/json'}
-        req = urllib.request.Request("https://hooks.slack.com/services/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", data,headers)
-        resp = urllib.request.urlopen(req)
-        response = resp.read()
-        print(response)
+
 
 
