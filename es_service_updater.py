@@ -31,45 +31,94 @@ def lambda_handler(event, context):
 
     logging.info("AWS Region: {0}".format(region))
     SESSION = boto3.session.Session(region_name=region)
-    cf = SESSION.client('es')
+    es_client = SESSION.client('es')
     #domain_name_list is list of elastic domain seperated by space in prod
     domain_name_list=domain_name_list.split(",")
     for domain_name in domain_name_list:
-        logging.info("Check service software update for elasticsearch: {0} ".format(domain_name))
-        response = cf.describe_elasticsearch_domain(DomainName=domain_name)
-        service_software_options=response['DomainStatus']['ServiceSoftwareOptions']
-        update_available=service_software_options['UpdateAvailable']
-        logging.info("Update avaliable: {0} ".format(update_available))
-        if update_available:
+        check_es_service_software_version(es_client, domain_name, region, slack_webhook, slack_channel)
+        check_es_version(es_client, domain_name, region, slack_webhook, slack_channel)
 
-            current_version =service_software_options['CurrentVersion']
-            new_version = service_software_options['NewVersion']
-            slack_txt = "*Service Domain update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
-                domain_name, current_version, new_version)
 
-            url_format="https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(region,domain_name)
-            slack_message = {
-                'channel': slack_channel,
-                'text': slack_txt,
-                "attachments": [
-                    {
-                        "fallback": "Update the domain through AWS elastic Search Service Console",
-                        "actions": [
-                            {
-                                "type": "button",
-                                "text": "Press Here to Update",
-                                "url": url_format
-                            }
-                        ]
-                    }
-                ]
-            }
-            data = json.dumps(slack_message).encode('utf-8')
-            headers = {'Content-Type': 'application/json'}
-            req = urllib.request.Request(slack_webhook, data,headers)
-            resp = urllib.request.urlopen(req)
-            response = resp.read()
-            print(response)
+def check_es_service_software_version(cf, domain_name, region, slack_webhook, slack_channel):
+    logging.info("Check service software update for elasticsearch: {0} ".format(domain_name))
+    response = cf.describe_elasticsearch_domain(DomainName=domain_name)
+    service_software_options = response['DomainStatus']['ServiceSoftwareOptions']
+    service_software_update_available = service_software_options['UpdateAvailable']
+    logging.info("Update avaliable: {0} ".format(service_software_update_available))
+    if service_software_update_available:
+        current_version = service_software_options['CurrentVersion']
+        new_version = service_software_options['NewVersion']
+        slack_txt = "*Service Software update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
+            domain_name, current_version, new_version)
+
+        url_format = "https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(
+            region, domain_name)
+        slack_message = {
+            'channel': slack_channel,
+            'text': slack_txt,
+            "attachments": [
+                {
+                    "fallback": "Update the domain through AWS elastic Search Service Console",
+                    "actions": [
+                        {
+                            "type": "button",
+                            "text": "Press Here to Update",
+                            "url": url_format
+                        }
+                    ]
+                }
+            ]
+        }
+        data = json.dumps(slack_message).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        req = urllib.request.Request(slack_webhook, data, headers)
+        resp = urllib.request.urlopen(req)
+        response = resp.read()
+        print(response)
+
+
+def check_es_version(es_client, domain_name, region, slack_webhook, slack_channel):
+    logging.info("Check service software update for elasticsearch: {0} ".format(domain_name))
+    response = es_client.get_compatible_elasticsearch_versions(DomainName=domain_name)
+    source_version=response['CompatibleElasticsearchVersions'][0]['SourceVersion']
+    compatible_target_versions = response['CompatibleElasticsearchVersions'][0]['TargetVersions']
+
+    if len(compatible_target_versions)==0:
+        print("Domain: {} is already on latest version of Elasticsearch".format(domain_name))
+    else:
+        latest_version = compatible_target_versions[-1]
+        print("Latest version of elastic Search that is compatible with Domain {0} is: {1}".format(domain_name,latest_version))
+
+        slack_txt = "*Elasticsearch Version update avaliable for:* {0}. \n*Source Version:* {1} \n*Latest Version:* {2} \nIn AWS console Press 'Actions' -> 'Upgrade domain'".format(
+            domain_name, source_version, latest_version)
+
+        url_format = "https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(
+            region, domain_name)
+        slack_message = {
+            'channel': slack_channel,
+            'text': slack_txt,
+            "attachments": [
+                {
+                    "fallback": "Update the domain through AWS elastic Search Service Console",
+                    "actions": [
+                        {
+                            "type": "button",
+                            "text": "AWS Console",
+                            "url": url_format
+                        }
+                    ]
+                }
+            ]
+        }
+        data = json.dumps(slack_message).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        req = urllib.request.Request(slack_webhook, data, headers)
+        resp = urllib.request.urlopen(req)
+        response = resp.read()
+        print(response)
+
+
+
 
 if __name__ == "__main__":
 
@@ -80,8 +129,8 @@ if __name__ == "__main__":
     # parser.add_argument("--aws-access-key-id", help="AWS Access Key ID", dest='aws_access_key', required=False)
     # parser.add_argument("--aws-secret-access-key", help="AWS Secret Access Key", dest='aws_secret_key',
     #                      required=False)
-    parser.add_argument("--domain-name", help="The domain name in elastic search that requires update ",
-                        dest='domain_name',
+    parser.add_argument("--domain-name-list", help="The domain name in elastic search that requires update ",
+                        dest='domain_name_list',
                         required=False)
     parser.add_argument("--region", help="The AWS region the stack is in", dest='region', required=True)
     parser.add_argument("--profile", help="The name of an aws cli profile to use.", dest='profile', default=None,
@@ -114,44 +163,14 @@ if __name__ == "__main__":
 
     # create the session for the boto3 with profile and region from user parameters
     SESSION = boto3.session.Session(profile_name=args.profile, region_name=args.region)
-    cf = SESSION.client('es')
+    logging.info("AWS Region: {0}".format(args.region))
 
-    response = cf.describe_elasticsearch_domain(DomainName=args.domain_name)
-    service_software_options=response['DomainStatus']['ServiceSoftwareOptions']
-    update_available=service_software_options['UpdateAvailable']
-
-    print(service_software_options)
-    update_available=True
-
-    if update_available:
-        #no service avaliable
-        current_version =service_software_options['CurrentVersion']
-        new_version = service_software_options['NewVersion']
-        slack_txt = "*Service Domain update avaliable for:* {0}. \n*Current Version:* {1} \n*New Version:* {2}".format(
-            args.domain_name, current_version, new_version)
-
-        url_format="https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(args.region,args.domain_name)
-        slack_message = {
-            'channel': "#slack-testing",
-            'text': slack_txt,
-            "attachments": [
-                {
-                    "fallback": "Update the domain through AWS elastic Search Service Console",
-                    "actions": [
-                        {
-                            "type": "button",
-                            "text": "Press Here to Update",
-                            "url": url_format
-                        }
-                    ]
-                }
-            ]
-        }
-        data = json.dumps(slack_message).encode('utf-8')
-        headers = {'Content-Type': 'application/json'}
-        req = urllib.request.Request("<your own slack hook>", data,headers)
-        resp = urllib.request.urlopen(req)
-        response = resp.read()
-        print(response)
+    es_client = SESSION.client('es')
+    #domain_name_list is list of elastic domain seperated by space in prod
+    domain_name_list=args.domain_name_list.split(",")
+    for domain_name in domain_name_list:
+        #DOn't commit this
+        check_es_service_software_version(es_client, domain_name, args.region, "<your slack webhook>", "#slack-testing")
+        check_es_version(es_client, domain_name, args.region, "<your slack webhook>", "#slack-testing")
 
 

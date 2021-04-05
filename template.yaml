@@ -49,6 +49,7 @@ Resources:
             - "iam:DeleteRole"
             - "ec2:DescribeInstances"
             - "es:DescribeElasticsearchDomain"
+            - "es:GetCompatibleElasticsearchVersions"
             Effect: Allow
             Resource:
             - '*'
