@@ -1,42 +1,11 @@
 import logging.handlers
 import argparse
 import boto3
-import re
 import os
 import json
 import urllib
 
 logging.getLogger().setLevel(logging.INFO)
-
-
-def lambda_handler(event, context):
-    """
-    Main lambda handler
-    :param event:
-    :param context:
-    :return:
-    """
-
-    if 'SLACK_CHANNEL' in os.environ:
-        slack_channel = os.environ['SLACK_CHANNEL']
-
-    if 'DOMAIN_NAME_LIST' in os.environ:
-        domain_name_list = os.environ['DOMAIN_NAME_LIST']
-
-    if 'REGION' in os.environ:
-        region = os.environ['REGION']
-
-    if 'SLACK_WEBHOOK_URL' in os.environ:
-        slack_webhook = os.environ['SLACK_WEBHOOK_URL']
-
-    logging.info("AWS Region: {0}".format(region))
-    SESSION = boto3.session.Session(region_name=region)
-    es_client = SESSION.client('es')
-    #domain_name_list is list of elastic domain seperated by space in prod
-    domain_name_list=domain_name_list.split(",")
-    for domain_name in domain_name_list:
-        check_es_service_software_version(es_client, domain_name, region, slack_webhook, slack_channel)
-        check_es_version(es_client, domain_name, region, slack_webhook, slack_channel)
 
 
 def check_es_service_software_version(cf, domain_name, region, slack_webhook, slack_channel):
@@ -118,10 +87,40 @@ def check_es_version(es_client, domain_name, region, slack_webhook, slack_channe
         print(response)
 
 
+def lambda_handler(event, context):
+    """
+    Main lambda handler
+    :param event:
+    :param context:
+    :return:
+    """
+
+    if 'SLACK_CHANNEL' in os.environ:
+        slack_channel = os.environ['SLACK_CHANNEL']
+
+    if 'SLACK_WEBHOOK_URL' in os.environ:
+        slack_webhook = os.environ['SLACK_WEBHOOK_URL']
+
+    if 'DOMAIN_NAME_LIST' in os.environ:
+        domain_name_list = os.environ['DOMAIN_NAME_LIST']
+
+    region = os.environ.get('AWS_REGION')
+
+    logging.info(f"AWS Region: {region}")
+    SESSION = boto3.session.Session(region_name=region)
+    es_client = SESSION.client('es')
+
+    if domain_name_list is not None:
+        #domain_name_list is list of elastic domain seperated by space in prod
+        domain_name_list = domain_name_list.split(",")
+        for domain_name in domain_name_list:
+            check_es_service_software_version(es_client, domain_name, region, slack_webhook, slack_channel)
+            check_es_version(es_client, domain_name, region, slack_webhook, slack_channel)
+    else:
+        logging.info("Empty domain name list - exiting")
 
 
 if __name__ == "__main__":
-
     LOG_FILENAME = 'cloudformation_get_es_update_status.log'
 
     parser = argparse.ArgumentParser(description='Get ElasticSearch Service Update Status ')
@@ -172,5 +171,3 @@ if __name__ == "__main__":
         #DOn't commit this
         check_es_service_software_version(es_client, domain_name, args.region, "<your slack webhook>", "#slack-testing")
         check_es_version(es_client, domain_name, args.region, "<your slack webhook>", "#slack-testing")
-
-
