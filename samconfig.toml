@@ -11,5 +11,6 @@ capabilities = "CAPABILITY_NAMED_IAM"
 parameter_overrides = [
   "SlackChannel=<CHANNEL_NAME>",
   "SlackWebhookUrl=<HOOK_URL>",
-  "DomainNameList=<COMMA_SEPARATED_LIST_OF_OS_DOMAINS>"
+  "DomainNameList=<COMMA_SEPARATED_LIST_OF_OS_DOMAINS>",
+  "EnvironmentIdentifier=<ENV_ID>"
 ]

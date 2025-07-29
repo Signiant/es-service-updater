@@ -17,6 +17,7 @@ The easiest deployment of this solution is using AWS SAM
     * SlackChannel - slack Channel to send notifications to
     * SlackWebhookUrl - slack webhook url for the above channel
     * DomainNameList - comma separated list of OS domain names to monitor
+    * EnvironmentIdentifier - optional environment identifier (e.g. prod/stage) - if not supplied, "default" will be used
 * deploy the lambda using SAM: `./utils/deploy.sh default`
 
 This will deploy/update the lambda.
