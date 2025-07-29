@@ -12,51 +12,15 @@ Parameters:
   DomainNameList:
     Type: String
     Default: ""
+  EnvironmentIdentifier:
+    Type: String
+    Default: "default"
 
 Resources:
-  ExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: "Allow"
-            Principal:
-              Service:
-                - "lambda.amazonaws.com"
-            Action:
-              - "sts:AssumeRole"
-      Path: /
-      Policies:
-      - PolicyDocument:
-          Statement:
-          - Action:
-            - logs:CreateLogGroup
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            - logs:DescribeLogStreams
-            Effect: Allow
-            Resource:
-            - '*'
-          - Action:
-            - "cloudformation:ListStacks"
-            - "cloudformation:DeleteStack"
-            - "iam:DeleteRolePolicy"
-            - "iam:DeleteRole"
-            - "ec2:DescribeInstances"
-            - "es:DescribeElasticsearchDomain"
-            - "es:GetCompatibleElasticsearchVersions"
-            Effect: Allow
-            Resource:
-            - '*'
-          Version: "2012-10-17"
-        PolicyName: "AllowLogsandCloudformation"
-
-  esServiceUpdater:
+  osServiceUpdater:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: OS-Service-Update-Notifier
+      FunctionName: !Sub "OS-Service-Update-Notifier-${EnvironmentIdentifier}"
       Description: Lambda function which will alert a slack channel when there is an update available for an opensearch cluster
       Handler: es_service_updater.lambda_handler
       Runtime: python3.13
