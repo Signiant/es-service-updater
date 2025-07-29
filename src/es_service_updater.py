@@ -23,9 +23,7 @@ def check_es_service_software_version(cf, domain_name, region, slack_webhook, sl
             )
         )
 
-        url_format = "https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(
-            region, domain_name
-        )
+        url_format = f"https://{region}.console.aws.amazon.com/aos/home?region={region}#opensearch/domains/{domain_name}"
         slack_message = {
             "channel": slack_channel,
             "text": slack_txt,
@@ -64,9 +62,7 @@ def check_es_version(es_client, domain_name, region, slack_webhook, slack_channe
             domain_name, source_version, latest_version
         )
 
-        url_format = "https://console.aws.amazon.com/es/home?region={0}#domain:resource={1};action=dashboard;tab=undefined".format(
-            region, domain_name
-        )
+        url_format = f"https://{region}.console.aws.amazon.com/aos/home?region={region}#opensearch/domains/{domain_name}"
         slack_message = {
             "channel": slack_channel,
             "text": slack_txt,
