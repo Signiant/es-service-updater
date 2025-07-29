@@ -20,7 +20,7 @@ Resources:
   osServiceUpdater:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !sub "OS-Service-Update-Notifier-${EnvironmentIdentifier}"
+      FunctionName: !Sub "OS-Service-Update-Notifier-${EnvironmentIdentifier}"
       Description: Lambda function which will alert a slack channel when there is an update available for an opensearch cluster
       Handler: es_service_updater.lambda_handler
       Runtime: python3.13
