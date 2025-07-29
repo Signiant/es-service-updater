@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: 'AWS::Serverless-2016-10-31'
-Description: Lambda function which alert team-sre channel when there is an update avaliable in elastic search
+Description: Lambda function which will alert a slack channel when there is an update available for an opensearch cluster
+Transform: AWS::Serverless-2016-10-31
 
 Parameters:
   SlackChannel:
@@ -10,9 +10,6 @@ Parameters:
     Type: String
     Default: ""
   DomainNameList:
-    Type: String
-    Default: ""
-  Region:
     Type: String
     Default: ""
 
@@ -57,39 +54,37 @@ Resources:
         PolicyName: "AllowLogsandCloudformation"
 
   esServiceUpdater:
-    Type: 'AWS::Serverless::Function'
+    Type: AWS::Serverless::Function
     Properties:
+      FunctionName: OS-Service-Update-Notifier
+      Description: Lambda function which will alert a slack channel when there is an update available for an opensearch cluster
       Handler: es_service_updater.lambda_handler
-      Runtime: python3.7
-      CodeUri: .
-      Description: Lambda function which alert team-sre channel when there is an update avaliable in elastic search
+      Runtime: python3.13
+      CodeUri: src/
       MemorySize: 128
       Timeout: 300
-      Role: !GetAtt ExecutionRole.Arn
       Environment:
         Variables:
           SLACK_CHANNEL: !Ref SlackChannel
           SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
           DOMAIN_NAME_LIST: !Ref DomainNameList
-          REGION: !Ref Region
-
-  lambdaScheduledRule:
-    Type: "AWS::Events::Rule"
-    Properties:
-      Description: "Run es-service-updater lambda every monday of the month at 9:00 am GMT"
-      # Set the cron to run At 09:00:00am, on every Monday, every month (lambdas clocks are GMT) to make sure we handle
-      # Standard time as well as Daylight Savings time 
-      ScheduleExpression: "cron(0 9 ? * MON *)"
-      State: "ENABLED"
-      Targets:
-        -
-          Arn: !GetAtt esServiceUpdater.Arn
-          Id: "es_Service_Updater"
-
-  LambdaInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt lambdaScheduledRule.Arn
-      FunctionName: !GetAtt esServiceUpdater.Arn
+      Policies:
+        - Version: 2012-10-17
+          Statement:
+            - Sid: Permissions
+              Action:
+              - "cloudformation:ListStacks"
+              - "cloudformation:DeleteStack"
+              - "iam:DeleteRolePolicy"
+              - "iam:DeleteRole"
+              - "ec2:DescribeInstances"
+              - "es:DescribeElasticsearchDomain"
+              - "es:GetCompatibleElasticsearchVersions"
+              Effect: Allow
+              Resource:
+              - '*'
+      Events:
+        WeeklyReport:
+          Type: Schedule
+          Properties:
+            Schedule: "cron(0 9 ? * MON *)" # Run the weekly report on Mondays at 09:00 GMT

@@ -1,0 +1,15 @@
+version = 0.1
+
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "os-service-update-notifier"
+resolve_s3 = true
+region = "us-east-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+  "SlackChannel=<CHANNEL_NAME>",
+  "SlackWebhookUrl=<HOOK_URL>",
+  "DomainNameList=<COMMA_SEPARATED_LIST_OF_OS_DOMAINS>"
+]
